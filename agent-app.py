@@ -5,6 +5,7 @@ import pandas as pd
 import json
 import re
 from typing import Annotated, TypedDict, Dict, Any, List
+from streamlit_mermaid import st_mermaid
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -30,7 +31,7 @@ def init_snowflake():
         account=os.getenv('SNOWFLAKE_ACCOUNT'),
         warehouse='PERSONAL_WH',
         database='PERSONAL_DB',
-        schema='FINANCE'
+        schema='PUBLIC'
     )
 
 snow_conn = init_snowflake()
@@ -53,7 +54,7 @@ def _get_all_tables() -> List[str]:
         query = """
         SELECT table_name 
         FROM information_schema.tables 
-        WHERE table_schema = 'FINANCE' 
+        WHERE table_schema = 'PUBLIC' 
         AND table_type = 'BASE TABLE';
         """
         cursor.execute(query)
@@ -67,7 +68,7 @@ def _get_schema_info() -> str:
         schema_query = """
         SELECT table_name, column_name, data_type, is_nullable
         FROM information_schema.columns 
-        WHERE table_schema = 'FINANCE'
+        WHERE table_schema = 'PUBLIC'
         ORDER BY table_name, ordinal_position;
         """
         cursor.execute(schema_query)
@@ -499,7 +500,22 @@ def _format_results(results: Dict) -> str:
     return "\n".join(output)
 
 def create_streamlit_app():
-    st.title("Natural Language to SQL Visualizer")
+    st.title("NLP To SQL Agent - Gemini")
+    st.subheader("LangGraph Workflow Structure")
+    mermaid_code = """
+    flowchart LR
+        START(Start) --> sql[SQL Generator]
+        sql --> exec[Query Executor]
+        exec --> viz[Visualization Analyzer]
+        viz --> END(End)
+        
+        style START fill:#e9ecef,stroke:#343a40
+        style END fill:#e9ecef,stroke:#343a40
+        style sql fill:#dcedc8,stroke:#689f38
+        style exec fill:#f8bbd0,stroke:#c2185b
+        style viz fill:#b3e5fc,stroke:#0288d1
+    """
+    st_mermaid(mermaid_code, height="100px")
     st.write("Ask questions about your data in plain English!")
     
     # Initialize session state
