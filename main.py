@@ -21,13 +21,13 @@ class NLToSQLConverter:
             account=os.getenv('SNOWFLAKE_ACCOUNT'),
             warehouse='PERSONAL_WH',
             database='PERSONAL_DB',
-            schema='PUBLIC'
+            schema='FINANCE'
         )
         self.cursor = self.snow_conn.cursor()
         
         # Set schema explicitly
         try:
-            self.cursor.execute("USE SCHEMA PUBLIC")
+            self.cursor.execute("USE SCHEMA FINANCE")
         except Exception as e:
             print(f"Warning: Could not set schema: {e}")
         
@@ -49,7 +49,7 @@ class NLToSQLConverter:
             query = """
             SELECT table_name 
             FROM information_schema.tables 
-            WHERE table_schema = 'PUBLIC' 
+            WHERE table_schema = 'FINANCE' 
             AND table_type = 'BASE TABLE';
             """
             self.cursor.execute(query)
@@ -64,7 +64,7 @@ class NLToSQLConverter:
             schema_query = """
             SELECT table_name, column_name, data_type, is_nullable
             FROM information_schema.columns 
-            WHERE table_schema = 'PUBLIC'
+            WHERE table_schema = 'FINANCE'
             ORDER BY table_name, ordinal_position;
             """
             self.cursor.execute(schema_query)
@@ -150,7 +150,7 @@ class NLToSQLConverter:
                 columns_query = f"""
                 SELECT column_name 
                 FROM information_schema.columns 
-                WHERE table_schema = 'PUBLIC' 
+                WHERE table_schema = 'FINANCE' 
                 AND table_name = '{table}'
                 """
                 self.cursor.execute(columns_query)
@@ -197,7 +197,7 @@ class NLToSQLConverter:
     def generate_sql(self, user_query: str) -> str:
         """Convert natural language query to SQL using Gemini"""
         prompt = f"""
-        You are a SQL query generator. Convert the following question to a SQL query based on the given database schema and relationships.
+        You are a SQL query generator specifically for Snowflake database. Convert the following question to a SQL query based on the given database schema and relationships.
         Only return the SQL query itself, without any explanations or additional text.
         
         Database schema:
@@ -218,6 +218,17 @@ class NLToSQLConverter:
         - Use table aliases to make the query more readable
         - Consider using appropriate aggregate functions when needed
         - Ensure proper join conditions based on the foreign key relationships
+        - For date operations, use Snowflake's date functions:
+          * YEAR(date_column) for extracting year
+          * DATE_TRUNC('year', date_column) for truncating to year
+          * DATE_PART('year', date_column) for getting year part
+          * TO_DATE(string_value) for converting strings to dates
+          * DATEADD(year/month/day, number, date) for date arithmetic
+        
+        Example date queries:
+        - "after 2015": WHERE YEAR(date_column) > 2015
+        - "in last 5 years": WHERE date_column >= DATEADD(year, -5, CURRENT_DATE())
+        - "between 2015 and 2020": WHERE YEAR(date_column) BETWEEN 2015 AND 2020
         
         Question: {user_query}
         """
